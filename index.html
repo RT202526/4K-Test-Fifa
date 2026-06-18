@@ -412,7 +412,8 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        const servers = [ 
+        const servers = [
+            { name: "FOX 4K VIP (.m3u8)", url: "https://streamxyz.shop/fox4k/index.m3u8" }, 
             { name: "FOX Sports 1", url: "https://junkieembeds.pages.dev/embed/fox-sports-1" },
             { name: "FOX Sports 1 4K", url: "https://junkieembeds.pages.dev/embed/fox-sports-1-4k" },
             { name: "BBC 4K", url: "https://junkieembeds.pages.dev/embed/bbc-4k" },
@@ -427,7 +428,7 @@
             { name: "Fox Cricket",url: "https://junkieembeds.pages.dev/embed/fox-sports-501"}
         ];
 
-        const API_KEY = "08b49d39a0a5c647e750e26ee80754e1"; 
+        const API_KEY = ""; 
         const API_BASE = "https://v3.football.api-sports.io";
         const API_HEADERS = { "x-rapidapi-host": "v3.football.api-sports.io", "x-apisports-key": API_KEY };
 
