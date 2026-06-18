@@ -6,6 +6,8 @@
     <title>RS 4K TV | FIFA WORLD CUP</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Rajdhani:wght@500;600;700;800&family=Great+Vibes&display=swap" rel="stylesheet">
     
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
     <style>
         /* ==========================================================================
            1. CORE VARIABLES & SETUP
@@ -128,7 +130,11 @@
             border: 1px solid rgba(212, 175, 55, 0.2);
             box-shadow: 0 20px 60px rgba(0,0,0,0.8), 0 0 30px rgba(212, 175, 55, 0.1);
         }
-        .player-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 1; }
+        
+        /* Updated CSS to handle both iframe and video tag */
+        .player-wrapper iframe, .player-wrapper video { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 1; 
+        }
 
         /* Loading & Error Overlay for Stream Player */
         .player-overlay {
@@ -344,29 +350,35 @@
         
         <div class="scroll-reveal" style="display: flex; flex-direction: column; gap: 30px;">
             <div class="player-wrapper">
-                <!-- Fallback/Loading Overlay -->
                 <div id="player-overlay" class="player-overlay">
                     <span id="player-msg" style="font-size: 1.2rem; font-weight: 700;">CONNECTING...</span>
                 </div>
                 
-                <!-- Fixed Iframe Properties with referrer policy -->
                 <iframe 
-                    id="main-player" 
+                    id="main-iframe" 
                     src="" 
                     allowfullscreen="true" 
                     webkitallowfullscreen="true" 
                     mozallowfullscreen="true" 
                     referrerpolicy="origin"
-                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen">
+                    allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+                    style="display: none;">
                 </iframe>
+
+                <video 
+                    id="main-video" 
+                    controls 
+                    autoplay 
+                    playsinline 
+                    style="display: none; background: #000;">
+                </video>
             </div>
 
             <div class="glass-panel">
                 <div class="border-trace"></div>
                 <div class="panel-header">📡 SELECT BROADCAST NETWORK</div>
                 <div class="server-grid" id="server-container">
-                    <!-- Servers will be injected here -->
-                </div>
+                    </div>
             </div>
         </div>
 
@@ -396,7 +408,6 @@
                 </div>
             </div>
 
-            <!-- New Browser Notice Section placed on the right sidebar -->
             <div class="browser-notice">
                 <h3>🛡️ Recommended Setup</h3>
                 <p>
@@ -431,8 +442,9 @@
         // CONFIGURATION
         // ==========================================================================
         
-        // SERVER CONFIGURATION - Auto generates channel names dynamically.
+        // SERVER CONFIGURATION - Added your new .m3u8 link as well
         const servers = [
+            { name: "FOX 4K VIP (.m3u8)", url: "https://streamxyz.shop/fox4k/index.m3u8" }, // Added new link
             { name: "FOX Sports 1", url: "https://junkieembeds.pages.dev/embed/fox-sports-1" },
             { name: "FOX Sports 1 4K", url: "https://junkieembeds.pages.dev/embed/fox-sports-1-4k" },
             { name: "BBC 4K", url: "https://junkieembeds.pages.dev/embed/bbc-4k" },
@@ -441,7 +453,10 @@
             { name: "Go3 Sport", url: "http://ytoxw6un.ottclub.xyz/iptv/KCUHA6DGYYVA8ZZFUPQV3KZH/6408/index.m3u8" },
             { name: "Hindi Songs",url: "https://epiconvh.akamaized.net/live/9XM/master_360.m3u8"},
             { name: "Balle Balle Music", url: "https://mcncdndigital.com/balleballetv/index.m3u8"},
-            { name: "TSN (4K HEVC)",url: "https://junkieembeds.pages.dev/embed/tsn-4k"}
+            { name: "TSN (4K HEVC)",url: "https://junkieembeds.pages.dev/embed/tsn-4k"},
+            { name: "BBC iPlayer",url: "https://junkieembeds.pages.dev/embed/bbc-4k"},
+            { name: "Fusball TV1",url: "https://junkieembeds.pages.dev/embed/fusballtvuhd-de"},
+            { name: "Fox Cricket",url: "https://junkieembeds.pages.dev/embed/fox-sports-501"}
         ];
 
         // API CONFIGURATION (API-Football V3 Standard)
@@ -453,17 +468,19 @@
         };
 
         // ==========================================================================
-        // SYSTEM LOGIC
+        // SYSTEM LOGIC (DUAL PLAYER: HLS.JS + IFRAME)
         // ==========================================================================
 
         document.addEventListener('DOMContentLoaded', () => {
             
-            // 1. FIXED STREAM PLAYER & SERVER SWITCHING LOGIC
             const serverContainer = document.getElementById('server-container');
-            const mainPlayer = document.getElementById('main-player');
+            const mainIframe = document.getElementById('main-iframe');
+            const mainVideo = document.getElementById('main-video');
             const playerOverlay = document.getElementById('player-overlay');
             const playerMsg = document.getElementById('player-msg');
+            
             let streamTimeout;
+            let hlsInstance = null; // Track HLS.js instance
 
             function loadStream(url, btnElement) {
                 // Handle Button Highlighting
@@ -478,23 +495,78 @@
                 playerMsg.style.color = 'var(--gold-primary)';
                 playerMsg.innerHTML = '<span class="live-dot" style="display:inline-block; margin-right:8px;"></span>CONNECTING SECURELY...';
 
-                // Change iframe source securely
-                mainPlayer.src = url;
-
-                // Success Handler: Hide overlay when iframe loads successfully
-                mainPlayer.onload = () => {
-                    clearTimeout(streamTimeout);
-                    playerOverlay.style.opacity = '0';
-                    setTimeout(() => { playerOverlay.style.pointerEvents = 'none'; }, 400);
-                };
-
-                // Fallback Handler: If stream fails to load or blocks connection (Timeout 10s)
+                // Cleanup previous connections
                 clearTimeout(streamTimeout);
-                streamTimeout = setTimeout(() => {
-                    playerOverlay.style.opacity = '1';
-                    playerMsg.style.color = '#ff4444';
-                    playerMsg.innerHTML = 'Stream unavailable.<br>Please try another server.';
-                }, 10000); // 10 seconds tolerance
+                if (hlsInstance) {
+                    hlsInstance.destroy();
+                    hlsInstance = null;
+                }
+                mainVideo.pause();
+                mainVideo.removeAttribute('src');
+                mainVideo.load();
+                mainIframe.src = "";
+
+                const isM3U8 = url.includes('.m3u8');
+
+                if (isM3U8) {
+                    // ----------------------------------------------------
+                    // LOGIC FOR .M3U8 FILES (USING VIDEO TAG & HLS.JS)
+                    // ----------------------------------------------------
+                    mainIframe.style.display = 'none';
+                    mainVideo.style.display = 'block';
+
+                    if (Hls.isSupported()) {
+                        hlsInstance = new Hls();
+                        hlsInstance.loadSource(url);
+                        hlsInstance.attachMedia(mainVideo);
+                        
+                        hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                            mainVideo.play().catch(e => console.log("Autoplay prevented by browser"));
+                            playerOverlay.style.opacity = '0';
+                            setTimeout(() => { playerOverlay.style.pointerEvents = 'none'; }, 400);
+                        });
+
+                        hlsInstance.on(Hls.Events.ERROR, function(event, data) {
+                            if (data.fatal) {
+                                playerOverlay.style.opacity = '1';
+                                playerMsg.style.color = '#ff4444';
+                                playerMsg.innerHTML = 'Stream unavailable.<br>CORS blocked or link expired.';
+                            }
+                        });
+                    } else if (mainVideo.canPlayType('application/vnd.apple.mpegurl')) {
+                        // Native HLS support (Safari/iOS)
+                        mainVideo.src = url;
+                        mainVideo.addEventListener('loadedmetadata', function() {
+                            mainVideo.play();
+                            playerOverlay.style.opacity = '0';
+                            setTimeout(() => { playerOverlay.style.pointerEvents = 'none'; }, 400);
+                        });
+                        mainVideo.addEventListener('error', function() {
+                            playerOverlay.style.opacity = '1';
+                            playerMsg.style.color = '#ff4444';
+                            playerMsg.innerHTML = 'Stream unavailable.<br>Please try another server.';
+                        });
+                    }
+                } else {
+                    // ----------------------------------------------------
+                    // LOGIC FOR EMBED LINKS (USING IFRAME)
+                    // ----------------------------------------------------
+                    mainVideo.style.display = 'none';
+                    mainIframe.style.display = 'block';
+                    mainIframe.src = url;
+
+                    mainIframe.onload = () => {
+                        playerOverlay.style.opacity = '0';
+                        setTimeout(() => { playerOverlay.style.pointerEvents = 'none'; }, 400);
+                    };
+
+                    // 10-second timeout fallback for iframe
+                    streamTimeout = setTimeout(() => {
+                        playerOverlay.style.opacity = '1';
+                        playerMsg.style.color = '#ff4444';
+                        playerMsg.innerHTML = 'Stream unavailable.<br>Please try another server.';
+                    }, 10000);
+                }
             }
 
             // Generate Buttons Dynamically
@@ -508,7 +580,6 @@
             
             // Initialize First Stream Automatically
             if(servers.length > 0) {
-                // Using a small delay to ensure DOM is fully ready
                 setTimeout(() => loadStream(servers[0].url, serverContainer.children[0]), 200);
             }
 
@@ -580,7 +651,7 @@
             
 
             // ==========================================================================
-            // API FETCH LOGIC (STRICT NO-FAKE-DATA POLICY)
+            // API FETCH LOGIC
             // ==========================================================================
 
             const liveContainer = document.getElementById('api-live-match');
