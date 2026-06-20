@@ -7,29 +7,44 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        /* আপনার সিএসএস কোড এখানে থাকবে */
-        :root { --bg-main: #0B0F19; --surface-card: #131A2A; --accent-blue: #2563EB; --text-primary: #F8FAFC; --text-secondary: #94A3B8; --border-color: rgba(255, 255, 255, 0.07); }
+        /* আপনার পূর্বের CSS ডিজাইন এখানে থাকবে */
+        :root { --bg-main: #0B0F19; --surface-card: #131A2A; --accent-blue: #2563EB; --accent-cyan: #06B6D4; --accent-gold: #F59E0B; --text-primary: #F8FAFC; --text-secondary: #94A3B8; --border-color: rgba(255, 255, 255, 0.07); }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-primary); min-height: 100vh; }
-        /* বাকি সিএসএস আগের মতোই থাকবে... */
+        html, body { font-family: 'Inter', sans-serif; background-color: var(--bg-main); color: var(--text-primary); min-height: 100vh; overflow-x: hidden; }
+        /* CSS এর বাকি অংশটুকু এখানে বসিয়ে দিন (যা আগে ছিল) */
     </style>
 </head>
 <body>
-    <!-- আগের এইচটিএমএল বডি কোড সব এখানে থাকবে -->
     <script>
         let rawServers = [];
-        // JSON ফাইল থেকে ডাটা লোড করার ফাংশন
+        let favorites = JSON.parse(localStorage.getItem('rs_favs')) || [];
+        let activeCategory = "All";
+        let currentUrl = "";
+
+        const DOM = {
+            catBar: document.getElementById('category-bar'),
+            chanGrid: document.getElementById('channel-container'),
+            iframe: document.getElementById('main-iframe'),
+            video: document.getElementById('main-video'),
+            overlay: document.getElementById('overlay'),
+            overlayMsg: document.getElementById('overlay-msg'),
+            searchInput: document.getElementById('search-input')
+        };
+
+        // নতুন ফাংশন: JSON ফাইল থেকে ডাটা লোড করা
         async function loadChannels() {
             try {
-                const response = await fetch('channels.json');
+                const response = await fetch('./channels.json'); // একই ফোল্ডারে ফাইল থাকলে এটি কাজ করবে
                 rawServers = await response.json();
                 renderCategories();
                 renderChannels();
-                playStream(rawServers[0].url, rawServers[0].name);
-            } catch (err) { console.error("Error loading channels:", err); }
+                if(rawServers.length) playStream(rawServers[0].url, rawServers[0].name);
+            } catch (err) { console.error("Data load error:", err); }
         }
 
-        // বাকি জাভাস্ক্রিপ্ট কোড...
+        /* renderCategories, renderChannels, playStream, showError ফাংশনগুলো আগের মতোই থাকবে */
+        /* কোড ছোট করতে এখানে বসিয়ে দিন... */
+
         document.addEventListener('DOMContentLoaded', loadChannels);
     </script>
 </body>
